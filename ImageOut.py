@@ -185,19 +185,20 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         import numpy as np
         import cv2
 
-        # 画像を受け取る
-        if self._ImageInIn.isNew():
-            image_data = self._ImageInIn.read().data
-        else:
+        if self._ImageInIn.isEmpty():
             print("not image")
             return RTC.RTC_OK
-        
+
+        image_data = self._ImageInIn.read().data
+        print("true image")
+    
         # 座標を受け取る
-        if self._ImagePlaceXYIn.isNew():
-            xy_data = self._ImagePlaceXYIn.read().data
-        else:
+        if self._ImagePlaceXYIn.isEmpty():
             print("not Place")
             return RTC.RTC_OK
+
+        xy_data = self._ImagePlaceXYIn.read().data
+        print("true Place")
 
         # 画像データをOpenCVの画像に変換
         image = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
