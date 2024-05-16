@@ -182,50 +182,44 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #
     #
     def onExecute(self, ec_id):
+        import numpy as np
         import cv2
-        
+
         # 画像を受け取る
-        ret, image_data = self._ImageInIn.read()  # 画像データを読み取る
-        if ret != RTC.RTC_OK:
-            return ret
+        if self._ImageInIn.isNew():
+            image_data = self._ImageInIn.read().data
+        else:
+            print("not image")
+            return RTC.RTC_OK
         
         # 座標を受け取る
-        ret, xy_data = self._ImagePlaceXYIn.read()  # 座標データを読み取る
-        if ret != RTC.RTC_OK:
-            return ret
+        if self._ImagePlaceXYIn.isNew():
+            xy_data = self._ImagePlaceXYIn.read().data
+        else:
+            print("not Place")
+            return RTC.RTC_OK
 
         # 画像データをOpenCVの画像に変換
-        image = cv2.imdecode(np.frombuffer(image_data.data, dtype=np.uint8), cv2.IMREAD_COLOR)
+        image = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
 
         # 座標データから座標を取得
-        x = xy_data.data[0]  # X座標
-        y = xy_data.data[1]  # Y座標
-        width = xy_data.data[2]  # 幅
-        height = xy_data.data[3]  # 高さ
+        x = xy_data[0]  # X座標
+        y = xy_data[1]  # Y座標
+        width = xy_data[2]  # 幅
+        height = xy_data[3]  # 高さ
 
-        if self.projector_flag:
-            # プロジェクターで画像を投影する場合の処理
-            # 指定した座標に画像を投影
-            projected_image = image[y:y+height, x:x+width]
+        # 指定した座標に画像を表示する
+        # ディスプレイに画像を表示
+        display_image = np.zeros((height, width, 3), np.uint8)
+        display_image[:image.shape[0], :image.shape[1]] = image
 
-            # プロジェクターの制御
-            #projector = pcl.ProjectorControl()  # プロジェクター制御ライブラリのインスタンス化
-            #projector.turn_on()  # プロジェクターをオンにする
-            #projector.set_position(x, y)  # 画像を指定された座標に投影する
-
-            # 投影された画像を表示
-            cv2.imshow('Projected Image', projected_image)
-            cv2.waitKey(1000) #1秒後に終了
-            cv2.destroyAllWindows()
-        else:
-            # パソコン画面に画像を表示する場合の処理
-            cv2.imshow('Image', image)
-            cv2.waitKey(1000) #1秒後に終了
-            cv2.destroyAllWindows()
-
-
+        cv2.imshow('Display Image', display_image)
+        cv2.moveWindow('Display Image', x, y)
+        cv2.waitKey(1000)  # 1秒後に終了
+        cv2.destroyAllWindows()
 
         return RTC.RTC_OK
+
 	
     ###
     ##
