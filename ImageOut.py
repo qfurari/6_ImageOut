@@ -68,7 +68,7 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         """
         """
         self._ImageInIn = OpenRTM_aist.InPort("ImageIn", self._d_ImageIn)
-        self._d_ImagePlaceXY = OpenRTM_aist.instantiateDataType(RTC.TimedUShortSeq)
+        self._d_ImagePlaceXY = OpenRTM_aist.instantiateDataType(RTC.TimedShortSeq)
         """
         """
         self._ImagePlaceXYIn = OpenRTM_aist.InPort("ImagePlaceXY", self._d_ImagePlaceXY)
