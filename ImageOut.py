@@ -103,6 +103,7 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 		
         # Set service provider to Ports
 		
+
         # Set service consumers to Ports
 		
         # Set CORBA Service Ports
@@ -192,52 +193,64 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         screen_width = monitor.width
         screen_height = monitor.height
 
+
+
         # 画像データと座標データを保存するリスト
-        image_array_data = []
+        compressed_image_data = []
         position_array_data = []
 
         # 画像データを一つずつ受け取る
         if self._ImageInIn.isNew():
             while self._ImageInIn.isNew():
                 image_data = self._ImageInIn.read().data
-                image_array_data.append(image_data)
-                print(f"Received {len(image_array_data)} images")
+        
+                # 画像データのデコード
+                image = np.frombuffer(image_data, dtype=np.uint8)
+                image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+        
+                # 画像データの圧縮
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]  # 圧縮品質を0から100の範囲で設定
+                result, compressed_data = cv2.imencode('.jpg', image, encode_param)
+        
+                if result:
+                    compressed_image_data.append(compressed_data)
+                else:
+                    print("Error: Failed to compress image")
+
+            print(f"Received {len(compressed_image_data)} compressed images")
 
         # 座標データを一つずつ受け取る
         if self._ImagePlaceXYIn.isNew():
             while self._ImagePlaceXYIn.isNew():
                 xy_data = self._ImagePlaceXYIn.read().data
-                # 座標データをペアで保存
                 position_array_data.append((xy_data[0], xy_data[1]))
-                print(f"Received position data: {position_array_data}")
+
+            print(f"Received position data: {position_array_data}")
 
         # 画像の表示
-        for image_data, position_data in zip(image_array_data, position_array_data):
-            # 画像データのデコードと表示
-            image = np.frombuffer(image_data, dtype=np.uint8)
-            image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
-            # デコードに失敗した場合のチェック
-            if image is None:
-                print("Error: Failed to decode image")
-                continue
+        for compressed_data, position_data in zip(compressed_image_data, position_array_data):
+            # 圧縮データのデコード
+            image = cv2.imdecode(np.frombuffer(compressed_data, dtype=np.uint8), cv2.IMREAD_COLOR)
 
             # 座標データの取得
             x, y = position_data
 
             # 画像をディスプレイのサイズにリサイズ
-            resized_image = cv2.resize(image, (screen_width, screen_height))
+            resized_image = cv2.resize(image, (screen_width//4, screen_height//4))
 
             # 指定した座標に画像を表示
             cv2.imshow('Display Image', resized_image)
             cv2.moveWindow('Display Image', x, y)
 
             # 適切な待機時間を設ける
-            cv2.waitKey(1)
+            cv2.waitKey(500)
 
             # メモリ解放
             del image, resized_image
 
+        cv2.destroyAllWindows()
+
+        
         return RTC.RTC_OK
     ##
     ## The aborting action when main logic error occurred.
