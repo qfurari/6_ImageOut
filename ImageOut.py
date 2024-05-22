@@ -12,6 +12,7 @@
 """
 # </rtc-template>
 
+from gettext import npgettext
 import sys
 import time
 sys.path.append(".")
@@ -182,47 +183,62 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #
     #
     def onExecute(self, ec_id):
-        import numpy as np
         import cv2
+        import numpy as np
+        from screeninfo import get_monitors
 
-        if self._ImageInIn.isEmpty():
-            print("not image")
-            return RTC.RTC_OK
+        # ディスプレイの解像度を取得
+        monitor = get_monitors()[0]
+        screen_width = monitor.width
+        screen_height = monitor.height
 
-        image_data = self._ImageInIn.read().data
-        print("true image")
-    
-        # 座標を受け取る
-        if self._ImagePlaceXYIn.isEmpty():
-            print("not Place")
-            return RTC.RTC_OK
+        # 画像データと座標データを保存するリスト
+        image_array_data = []
+        position_array_data = []
 
-        xy_data = self._ImagePlaceXYIn.read().data
-        print("true Place")
+        # 画像データを一つずつ受け取る
+        if self._ImageInIn.isNew():
+            while self._ImageInIn.isNew():
+                image_data = self._ImageInIn.read().data
+                image_array_data.append(image_data)
+                print(f"Received {len(image_array_data)} images")
 
-        # 画像データをOpenCVの画像に変換
-        image = cv2.imdecode(np.frombuffer(image_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+        # 座標データを一つずつ受け取る
+        if self._ImagePlaceXYIn.isNew():
+            while self._ImagePlaceXYIn.isNew():
+                xy_data = self._ImagePlaceXYIn.read().data
+                # 座標データをペアで保存
+                position_array_data.append((xy_data[0], xy_data[1]))
+                print(f"Received position data: {position_array_data}")
 
-        # 座標データから座標を取得
-        x = xy_data[0]  # X座標
-        y = xy_data[1]  # Y座標
-        width = xy_data[2]  # 幅
-        height = xy_data[3]  # 高さ
+        # 画像の表示
+        for image_data, position_data in zip(image_array_data, position_array_data):
+            # 画像データのデコードと表示
+            image = np.frombuffer(image_data, dtype=np.uint8)
+            image = cv2.imdecode(image, cv2.IMREAD_COLOR)
 
-        # 指定した座標に画像を表示する
-        # ディスプレイに画像を表示
-        display_image = np.zeros((height, width, 3), np.uint8)
-        display_image[:image.shape[0], :image.shape[1]] = image
+            # デコードに失敗した場合のチェック
+            if image is None:
+                print("Error: Failed to decode image")
+                continue
 
-        cv2.imshow('Display Image', display_image)
-        cv2.moveWindow('Display Image', x, y)
-        cv2.waitKey(1000)  # 1秒後に終了
-        cv2.destroyAllWindows()
+            # 座標データの取得
+            x, y = position_data
+
+            # 画像をディスプレイのサイズにリサイズ
+            resized_image = cv2.resize(image, (screen_width, screen_height))
+
+            # 指定した座標に画像を表示
+            cv2.imshow('Display Image', resized_image)
+            cv2.moveWindow('Display Image', x, y)
+
+            # 適切な待機時間を設ける
+            cv2.waitKey(1)
+
+            # メモリ解放
+            del image, resized_image
 
         return RTC.RTC_OK
-
-	
-    ###
     ##
     ## The aborting action when main logic error occurred.
     ##
