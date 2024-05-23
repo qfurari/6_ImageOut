@@ -7,33 +7,22 @@
  @file ImageOut.py
  @brief ModuleDescription
  @date $Date$
-
-
 """
 # </rtc-template>
 
-from gettext import npgettext
 import sys
 import time
+import numpy as np
+import cv2
+from screeninfo import get_monitors
+
 sys.path.append(".")
 
 # Import RTM module
 import RTC
 import OpenRTM_aist
 
-
-# Import Service implementation class
-# <rtc-template block="service_impl">
-
-# </rtc-template>
-
-# Import Service stub modules
-# <rtc-template block="consumer_import">
-# </rtc-template>
-
-
-# This module's spesification
-# <rtc-template block="module_spec">
+# This module's specification
 imageout_spec = ["implementation_id", "ImageOut", 
          "type_name",         "ImageOut", 
          "description",       "ModuleDescription", 
@@ -45,87 +34,103 @@ imageout_spec = ["implementation_id", "ImageOut",
          "language",          "Python", 
          "lang_type",         "SCRIPT",
          ""]
-# </rtc-template>
 
-# <rtc-template block="component_description">
-##
-# @class ImageOut
-# @brief ModuleDescription
-# 
-# 受け取った座標に受け取ったimageをプロジェクターを通して出力するコンポーネント
-# 
-# 
-# </rtc-template>
 class ImageOut(OpenRTM_aist.DataFlowComponentBase):
-	
-    ##
-    # @brief constructor
-    # @param manager Maneger Object
-    # 
+    
     def __init__(self, manager):
         OpenRTM_aist.DataFlowComponentBase.__init__(self, manager)
 
-        self._d_ImageIn = OpenRTM_aist.instantiateDataType(RTC.TimedOctetSeq)
-        """
-        """
-        self._ImageInIn = OpenRTM_aist.InPort("ImageIn", self._d_ImageIn)
+        self._d_ImageGenParams = OpenRTM_aist.instantiateDataType(RTC.TimedShortSeq)
+        self._ImageGenParamsIn = OpenRTM_aist.InPort("ImageGenParams", self._d_ImageGenParams)
         self._d_ImagePlaceXY = OpenRTM_aist.instantiateDataType(RTC.TimedShortSeq)
-        """
-        """
         self._ImagePlaceXYIn = OpenRTM_aist.InPort("ImagePlaceXY", self._d_ImagePlaceXY)
 
+        # 画像生成用の数値配列と座標データを保存するリスト
+        self.image_gen_params = []
+        self.position_array_data = []
 
-		
-
-
-        # initialize of configuration-data.
-        # <rtc-template block="init_conf_param">
-		
-        # </rtc-template>
-
-
-		 
-    ##
-    #
-    # The initialize action (on CREATED->ALIVE transition)
-    # 
-    # @return RTC::ReturnCode_t
-    # 
-    #
     def onInitialize(self):
-        # Bind variables and configuration variable
-		
-        # Set InPort buffers
-        self.addInPort("ImageIn",self._ImageInIn)
-        self.addInPort("ImagePlaceXY",self._ImagePlaceXYIn)
-		
-        # Set OutPort buffers
-		
-        # Set service provider to Ports
-		
-
-        # Set service consumers to Ports
-		
-        # Set CORBA Service Ports
-		
+        self.addInPort("ImageGenParams", self._ImageGenParamsIn)
+        self.addInPort("ImagePlaceXY", self._ImagePlaceXYIn)
         return RTC.RTC_OK
-	
-    ###
-    ## 
+    
+    def generate_image(self,amplitude):
+        blue = min(255, int((amplitude / 20000) * 255))
+        green = 0
+        red = min(255, int(((20000 - amplitude) / 30000) * 255))
+        color = (blue, green, red)
+        size = 500
+        image = np.full((size, size, 3), 255, dtype=np.uint8)
+        center = (size // 2, size // 2)
+        radius = size // 3
+        if 0 <= amplitude <= 5000:
+          cv2.circle(image, center, radius, color, -1)
+        elif 5001 <= amplitude <= 10000:
+          axes = (radius, radius // 2)
+          cv2.ellipse(image, center, axes, 0, 0, 360, color, -1)
+        elif amplitude > 20000:
+          top_left = (center[0] - radius, center[1] - radius)
+          bottom_right = (center[0] + radius, center[1] + radius)
+          cv2.rectangle(image, top_left, bottom_right, color, -1)
+        return image
+
+    def onExecute(self, ec_id):
+        # ディスプレイの解像度を取得
+        monitor = get_monitors()[0]
+        screen_width = monitor.width
+        screen_height = monitor.height
+        white_window = np.full((screen_height, screen_width, 3), 255, dtype=np.uint8)
+    
+        # 画像生成用の数値配列と座標配列を初期化
+        image_gen_params = []
+        position_array_data = []
+
+        # 画像生成用の数値配列を受け取る
+        if self._ImageGenParamsIn.isNew():
+            image_gen_params = self._ImageGenParamsIn.read().data
+            print(f"Received image generation parameters: {image_gen_params}")
+
+        # 座標データを一組ずつ受け取ってリストに格納する
+        if self._ImagePlaceXYIn.isNew():
+            while self._ImagePlaceXYIn.isNew():
+                xy_data = self._ImagePlaceXYIn.read().data
+                for i in range(0, len(xy_data), 2):
+                    position_array_data.append((xy_data[i], xy_data[i + 1]))
+                print(f"Received position data: {position_array_data}")
+
+        # 画像生成用の数値配列と座標配列の両方がある場合のみ画像を生成して表示
+        if image_gen_params and position_array_data:
+            
+            for amplitude, (x, y) in zip(image_gen_params, position_array_data):
+                image = self.generate_image(amplitude)
+                img_height, img_width = image.shape[:2]
+                white_window[y:y+img_height, x:x+img_width] = image
+        
+                
+            cv2.imshow('Display Image', white_window)
+            cv2.waitKey(5)
+            cv2.destroyAllWindows()
+            
+            del image_gen_params
+            del position_array_data
+
+        return RTC.RTC_OK
+
+
+    ##
     ## The finalize action (on ALIVE->END transition)
-    ## 
+    ##
     ## @return RTC::ReturnCode_t
-    #
-    ## 
+    ##
+    ##
     #def onFinalize(self):
     #
-
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The startup action when ExecutionContext startup
-    ## 
+    ##
     ## @param ec_id target ExecutionContext Id
     ##
     ## @return RTC::ReturnCode_t
@@ -134,8 +139,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #def onStartup(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The shutdown action when ExecutionContext stop
     ##
@@ -147,111 +152,34 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #def onShutdown(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
+    
     ##
-    #
-    # The activated action (Active state entry action)
-    #
-    # @param ec_id target ExecutionContext Id
-    # 
-    # @return RTC::ReturnCode_t
-    #
-    #
+    ##
+    ## The activated action (Active state entry action)
+    ##
+    ## @param ec_id target ExecutionContext Id
+    ##
+    ## @return RTC::ReturnCode_t
+    ##
+    ##
     def onActivated(self, ec_id):
     
         return RTC.RTC_OK
-	
+    
     ##
-    #
-    # The deactivated action (Active state exit action)
-    #
-    # @param ec_id target ExecutionContext Id
-    #
-    # @return RTC::ReturnCode_t
-    #
-    #
+    ##
+    ## The deactivated action (Active state exit action)
+    ##
+    ## @param ec_id target ExecutionContext Id
+    ##
+    ## @return RTC::ReturnCode_t
+    ##
+    ##
     def onDeactivated(self, ec_id):
     
         return RTC.RTC_OK
-	
+
     ##
-    #
-    # The execution action that is invoked periodically
-    #
-    # @param ec_id target ExecutionContext Id
-    #
-    # @return RTC::ReturnCode_t
-    #
-    #
-    def onExecute(self, ec_id):
-        import cv2
-        import numpy as np
-        from screeninfo import get_monitors
-
-        # ディスプレイの解像度を取得
-        monitor = get_monitors()[0]
-        screen_width = monitor.width
-        screen_height = monitor.height
-
-
-
-        # 画像データと座標データを保存するリスト
-        compressed_image_data = []
-        position_array_data = []
-
-        # 画像データを一つずつ受け取る
-        if self._ImageInIn.isNew():
-            while self._ImageInIn.isNew():
-                image_data = self._ImageInIn.read().data
-        
-                # 画像データのデコード
-                image = np.frombuffer(image_data, dtype=np.uint8)
-                image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-        
-                # 画像データの圧縮
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 50]  # 圧縮品質を0から100の範囲で設定
-                result, compressed_data = cv2.imencode('.jpg', image, encode_param)
-        
-                if result:
-                    compressed_image_data.append(compressed_data)
-                else:
-                    print("Error: Failed to compress image")
-
-            print(f"Received {len(compressed_image_data)} compressed images")
-
-        # 座標データを一つずつ受け取る
-        if self._ImagePlaceXYIn.isNew():
-            while self._ImagePlaceXYIn.isNew():
-                xy_data = self._ImagePlaceXYIn.read().data
-                position_array_data.append((xy_data[0], xy_data[1]))
-
-            print(f"Received position data: {position_array_data}")
-
-        # 画像の表示
-        for compressed_data, position_data in zip(compressed_image_data, position_array_data):
-            # 圧縮データのデコード
-            image = cv2.imdecode(np.frombuffer(compressed_data, dtype=np.uint8), cv2.IMREAD_COLOR)
-
-            # 座標データの取得
-            x, y = position_data
-
-            # 画像をディスプレイのサイズにリサイズ
-            resized_image = cv2.resize(image, (screen_width//4, screen_height//4))
-
-            # 指定した座標に画像を表示
-            cv2.imshow('Display Image', resized_image)
-            cv2.moveWindow('Display Image', x, y)
-
-            # 適切な待機時間を設ける
-            cv2.waitKey(500)
-
-            # メモリ解放
-            del image, resized_image
-
-        cv2.destroyAllWindows()
-
-        
-        return RTC.RTC_OK
     ##
     ## The aborting action when main logic error occurred.
     ##
@@ -263,8 +191,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #def onAborting(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The error action in ERROR state
     ##
@@ -276,8 +204,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #def onError(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The reset action that is invoked resetting
     ##
@@ -289,8 +217,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     #def onReset(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The state update action that is invoked after onExecute() action
     ##
@@ -298,56 +226,38 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
     ##
     ## @return RTC::ReturnCode_t
     ##
-
     ##
     #def onStateUpdate(self, ec_id):
     #
     #    return RTC.RTC_OK
-	
-    ###
+    
+    ##
     ##
     ## The action that is invoked when execution context's rate is changed
     ##
     ## @param ec_id target ExecutionContext Id
     ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onRateChanged(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-	
-
-
-
+    ## @return RTC::RTC_OK
+    
 def ImageOutInit(manager):
     profile = OpenRTM_aist.Properties(defaults_str=imageout_spec)
-    manager.registerFactory(profile,
-                            ImageOut,
-                            OpenRTM_aist.Delete)
+    manager.registerFactory(profile, ImageOut, OpenRTM_aist.Delete)
 
 def MyModuleInit(manager):
     ImageOutInit(manager)
-
-    # create instance_name option for createComponent()
     instance_name = [i for i in sys.argv if "--instance_name=" in i]
     if instance_name:
         args = instance_name[0].replace("--", "?")
     else:
         args = ""
-  
-    # Create a component
     comp = manager.createComponent("ImageOut" + args)
 
 def main():
-    # remove --instance_name= option
     argv = [i for i in sys.argv if not "--instance_name=" in i]
-    # Initialize manager
-    mgr = OpenRTM_aist.Manager.init(sys.argv)
+    mgr = OpenRTM_aist.Manager.init(argv)
     mgr.setModuleInitProc(MyModuleInit)
     mgr.activateManager()
     mgr.runManager()
 
 if __name__ == "__main__":
     main()
-
