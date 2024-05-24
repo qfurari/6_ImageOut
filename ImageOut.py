@@ -45,10 +45,9 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         self._d_ImagePlaceXY = OpenRTM_aist.instantiateDataType(RTC.TimedShortSeq)
         self._ImagePlaceXYIn = OpenRTM_aist.InPort("ImagePlaceXY", self._d_ImagePlaceXY)
 
-        # 画像生成用の数値配列と座標データを保存するリスト
+        # 画像生成用の数値配列を保存するリスト
         self.image_gen_params = []
-        self.position_array_data = []
-
+        
     def onInitialize(self):
         self.addInPort("ImageGenParams", self._ImageGenParamsIn)
         self.addInPort("ImagePlaceXY", self._ImagePlaceXYIn)
@@ -59,61 +58,55 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         green = 0
         red = min(255, int(((20000 - amplitude) / 30000) * 255))
         color = (blue, green, red)
-        size = 500
+        size = 250
         image = np.full((size, size, 3), 255, dtype=np.uint8)
         center = (size // 2, size // 2)
-        radius = size // 3
+        radius = size // 6
         if 0 <= amplitude <= 5000:
           cv2.circle(image, center, radius, color, -1)
         elif 5001 <= amplitude <= 10000:
           axes = (radius, radius // 2)
           cv2.ellipse(image, center, axes, 0, 0, 360, color, -1)
-        elif amplitude > 20000:
+        elif amplitude > 10000:
           top_left = (center[0] - radius, center[1] - radius)
           bottom_right = (center[0] + radius, center[1] + radius)
           cv2.rectangle(image, top_left, bottom_right, color, -1)
         return image
 
     def onExecute(self, ec_id):
-        # ディスプレイの解像度を取得
-        monitor = get_monitors()[0]
-        screen_width = monitor.width
-        screen_height = monitor.height
-        white_window = np.full((screen_height, screen_width, 3), 255, dtype=np.uint8)
-    
+        # 固定のウィンドウサイズを設定
+        window_width = 1000
+        window_height = 1500
+
+        # 白い画像を生成
+        white_window = np.full((window_height, window_width, 3), 255, dtype=np.uint8)
+
         # 画像生成用の数値配列と座標配列を初期化
-        image_gen_params = []
+        #image_gen_params = []
         position_array_data = []
 
         # 画像生成用の数値配列を受け取る
         if self._ImageGenParamsIn.isNew():
-            image_gen_params = self._ImageGenParamsIn.read().data
-            print(f"Received image generation parameters: {image_gen_params}")
+            self.image_gen_params = self._ImageGenParamsIn.read().data
+            print(f"Received image generation parameters: {self.image_gen_params}")
 
         # 座標データを一組ずつ受け取ってリストに格納する
         if self._ImagePlaceXYIn.isNew():
             while self._ImagePlaceXYIn.isNew():
                 xy_data = self._ImagePlaceXYIn.read().data
-                for i in range(0, len(xy_data), 2):
-                    position_array_data.append((xy_data[i], xy_data[i + 1]))
+                position_array_data.append(xy_data)
                 print(f"Received position data: {position_array_data}")
 
-        # 画像生成用の数値配列と座標配列の両方がある場合のみ画像を生成して表示
-        if image_gen_params and position_array_data:
-            
-            for amplitude, (x, y) in zip(image_gen_params, position_array_data):
+           
+            for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
                 image = self.generate_image(amplitude)
                 img_height, img_width = image.shape[:2]
-                white_window[y:y+img_height, x:x+img_width] = image
-        
-                
-            cv2.imshow('Display Image', white_window)
-            cv2.waitKey(5)
-            cv2.destroyAllWindows()
-            
-            del image_gen_params
-            del position_array_data
+                if y + img_height <= window_height and x + img_width <= window_width:
+                    white_window[y:y+img_height, x:x+img_width] = image
 
+            cv2.imshow('Display Image', white_window)
+            cv2.waitKey(1)
+            #cv2.destroyAllWindows()
         return RTC.RTC_OK
 
 
