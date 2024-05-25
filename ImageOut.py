@@ -101,6 +101,11 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
                 image = self.generate_image(amplitude)
                 img_height, img_width = image.shape[:2]
+                
+                # 座標倍にスケーリング
+                x = x * 6
+                y = y * 6
+
                 if y + img_height <= window_height and x + img_width <= window_width:
                     white_window[y:y+img_height, x:x+img_width] = image
 
