@@ -75,8 +75,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
     def onExecute(self, ec_id):
         # 固定のウィンドウサイズを設定
-        window_width = 1000
-        window_height = 1500
+        window_width = 2000
+        window_height = 1300
 
         # 白い画像を生成
         white_window = np.full((window_height, window_width, 3), 255, dtype=np.uint8)
