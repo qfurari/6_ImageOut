@@ -58,7 +58,7 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         green = 0
         red = min(255, int(((20000 - amplitude) / 30000) * 255))
         color = (blue, green, red)
-        size = 250
+        size = 300
         image = np.full((size, size, 3), 255, dtype=np.uint8)
         center = (size // 2, size // 2)
         radius = size // 6
@@ -85,7 +85,7 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         #image_gen_params = []
         position_array_data = []
 
-        # 画像生成用の数値配列を受け取る
+        # 画像生成用の数値配列を受け取る(今まで受け取ったのは保存してそれに上書き)
         if self._ImageGenParamsIn.isNew():
             self.image_gen_params = self._ImageGenParamsIn.read().data
             print(f"Received image generation parameters: {self.image_gen_params}")
@@ -93,9 +93,10 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         # 座標データを一組ずつ受け取ってリストに格納する
         if self._ImagePlaceXYIn.isNew():
             while self._ImagePlaceXYIn.isNew():
+                time.sleep(0.005)
                 xy_data = self._ImagePlaceXYIn.read().data
                 position_array_data.append(xy_data)
-                print(f"Received position data: {position_array_data}")
+            print(f"Received position data: {position_array_data}")
 
            
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
@@ -103,8 +104,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
                 img_height, img_width = image.shape[:2]
                 
                 # 座標倍にスケーリング
-                x = x * 6
-                y = y * 6
+                x = x * 20 
+                y = y * 13
 
                 if y + img_height <= window_height and x + img_width <= window_width:
                     white_window[y:y+img_height, x:x+img_width] = image
