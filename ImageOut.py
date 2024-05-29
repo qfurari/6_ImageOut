@@ -98,17 +98,26 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
                 position_array_data.append(xy_data)
             print(f"Received position data: {position_array_data}")
 
-           
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
-                image = self.generate_image(amplitude)
-                img_height, img_width = image.shape[:2]
+                # 色を決定する
+                blue = min(255, int((amplitude / 20000) * 255))
+                green = 0
+                red = min(255, int(((20000 - amplitude) / 30000) * 255))
+                color = (blue, green, red)
                 
-                # 座標倍にスケーリング
-                x = x * 20 
-                y = y * 13
+                size = 400
+                center = (int(x * 20), int(y * 13))  # スケーリング
+                radius = size // 6
 
-                if y + img_height <= window_height and x + img_width <= window_width:
-                    white_window[y:y+img_height, x:x+img_width] = image
+                if 0 <= amplitude <= 5000:
+                    cv2.circle(white_window, center, radius, color, -1)
+                elif 5001 <= amplitude <= 10000:
+                    axes = (radius, radius // 2)
+                    cv2.ellipse(white_window, center, axes, 0, 0, 360, color, -1)
+                elif amplitude > 10000:
+                    top_left = (center[0] - radius, center[1] - radius)
+                    bottom_right = (center[0] + radius, center[1] + radius)
+                    cv2.rectangle(white_window, top_left, bottom_right, color, -1)
 
             cv2.imshow('Display Image', white_window)
             cv2.waitKey(1)
