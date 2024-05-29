@@ -52,31 +52,11 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         self.addInPort("ImageGenParams", self._ImageGenParamsIn)
         self.addInPort("ImagePlaceXY", self._ImagePlaceXYIn)
         return RTC.RTC_OK
-    
-    def generate_image(self,amplitude):
-        blue = min(255, int((amplitude / 20000) * 255))
-        green = 0
-        red = min(255, int(((20000 - amplitude) / 30000) * 255))
-        color = (blue, green, red)
-        size = 300
-        image = np.full((size, size, 3), 255, dtype=np.uint8)
-        center = (size // 2, size // 2)
-        radius = size // 6
-        if 0 <= amplitude <= 5000:
-          cv2.circle(image, center, radius, color, -1)
-        elif 5001 <= amplitude <= 10000:
-          axes = (radius, radius // 2)
-          cv2.ellipse(image, center, axes, 0, 0, 360, color, -1)
-        elif amplitude > 10000:
-          top_left = (center[0] - radius, center[1] - radius)
-          bottom_right = (center[0] + radius, center[1] + radius)
-          cv2.rectangle(image, top_left, bottom_right, color, -1)
-        return image
 
     def onExecute(self, ec_id):
         # 固定のウィンドウサイズを設定
-        window_width = 2000
-        window_height = 1300
+        window_width = 1920
+        window_height = 1440
 
         # 白い画像を生成
         white_window = np.full((window_height, window_width, 3), 255, dtype=np.uint8)
@@ -104,10 +84,9 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
                 green = 0
                 red = min(255, int(((20000 - amplitude) / 30000) * 255))
                 color = (blue, green, red)
-                
-                size = 400
-                center = (int(x * 20), int(y * 13))  # スケーリング
-                radius = size // 6
+               
+                center = (int(x*3), int(y*3))  # スケーリング
+                radius = (amplitude % 3 + 3) * 40 
 
                 if 0 <= amplitude <= 5000:
                     cv2.circle(white_window, center, radius, color, -1)
