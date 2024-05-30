@@ -55,8 +55,8 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
     def onExecute(self, ec_id):
         # 固定のウィンドウサイズを設定
-        window_width = 1920
-        window_height = 1440
+        window_width = 1440
+        window_height = 960
 
         # 白い画像を生成
         white_window = np.full((window_height, window_width, 3), 255, dtype=np.uint8)
@@ -81,12 +81,12 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
                 # 色を決定する
                 blue = min(255, int((amplitude / 20000) * 255))
-                green = 0
+                green = amplitude % 255;
                 red = min(255, int(((20000 - amplitude) / 30000) * 255))
                 color = (blue, green, red)
                
-                center = (int(x*3), int(y*3))  # スケーリング
-                radius = (amplitude % 3 + 3) * 40 
+                center = (int(x), int(y))  # スケーリング
+                radius = (amplitude % 3 + 3) * 15
 
                 if 0 <= amplitude <= 5000:
                     cv2.circle(white_window, center, radius, color, -1)
