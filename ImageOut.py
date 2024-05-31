@@ -62,7 +62,6 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
         white_window = np.full((window_height, window_width, 3), 255, dtype=np.uint8)
 
         # 画像生成用の数値配列と座標配列を初期化
-        #image_gen_params = []
         position_array_data = []
 
         # 画像生成用の数値配列を受け取る(今まで受け取ったのは保存してそれに上書き)
@@ -80,158 +79,54 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
                 # 色を決定する
-                
-                num = amplitude%3
-
+                num = amplitude % 3
                 blue = min(255, int((amplitude / 20000) * 255))
-                green = amplitude % 255;
-                #red = min(255, int(((20000 - amplitude) / 30000) * 255))
-                red = random.randint(50*(num+1), 255)
+                green = amplitude % 255
+                red = random.randint(50 * (num + 1), 255)
                 color = (blue, green, red)
-               
-                center = (int(x), int(y))  # スケーリング
-                radius = (amplitude % 5 + 3) * 15
-                
-               
 
-                if num==0:
-                    cv2.circle(white_window, center, radius, color, -1)
-                elif num==1:
+                center = (int(x), int(y))
+                radius = (amplitude % 6 + 3) * 15
+                alpha = 0.7  # 透明度を0.5に設定
+
+                # 新しいウィンドウに図形を描画
+                overlay = white_window.copy()
+                '''
+                if num == 0:
+                    cv2.circle(overlay, center, radius, color, -1)
+                elif num == 1:
                     axes = (radius, radius // 2)
-                    cv2.ellipse(white_window, center, axes, 0, 0, 360, color, -1)
+                    cv2.ellipse(overlay, center, axes, 0, 0, 360, color, -1)
                 else:
                     top_left = (center[0] - radius, center[1] - radius)
                     bottom_right = (center[0] + radius, center[1] + radius)
-                    cv2.rectangle(white_window, top_left, bottom_right, color, -1)
+                    cv2.rectangle(overlay, top_left, bottom_right, color, -1)
+'''
+
+                shape_index = (amplitude - 1) // 500
+                num_sides = min(shape_index + 3, 100)
+                angle_step = 2 * np.pi / num_sides
+                angles = np.arange(num_sides) * angle_step
+                x_points = (center[0] + radius * np.cos(angles)).astype(int)
+                y_points = (center[1] + radius * np.sin(angles)).astype(int)
+                points = np.column_stack((x_points, y_points))
+                
+
+                cv2.fillPoly(overlay, [points], color)
+                # 透過合成
+                cv2.addWeighted(overlay, alpha, white_window, 1 - alpha, 0, white_window)
 
             cv2.imshow('Display Image', white_window)
             cv2.waitKey(1)
-            #cv2.destroyAllWindows()
+            # cv2.destroyAllWindows()
         return RTC.RTC_OK
 
-
-    ##
-    ## The finalize action (on ALIVE->END transition)
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onFinalize(self):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The startup action when ExecutionContext startup
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onStartup(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The shutdown action when ExecutionContext stop
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onShutdown(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The activated action (Active state entry action)
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
     def onActivated(self, ec_id):
-    
-        return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The deactivated action (Active state exit action)
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    def onDeactivated(self, ec_id):
-    
         return RTC.RTC_OK
 
-    ##
-    ##
-    ## The aborting action when main logic error occurred.
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onAborting(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The error action in ERROR state
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onError(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The reset action that is invoked resetting
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onReset(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The state update action that is invoked after onExecute() action
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::ReturnCode_t
-    ##
-    ##
-    #def onStateUpdate(self, ec_id):
-    #
-    #    return RTC.RTC_OK
-    
-    ##
-    ##
-    ## The action that is invoked when execution context's rate is changed
-    ##
-    ## @param ec_id target ExecutionContext Id
-    ##
-    ## @return RTC::RTC_OK
-    
+    def onDeactivated(self, ec_id):
+        return RTC.RTC_OK
+
 def ImageOutInit(manager):
     profile = OpenRTM_aist.Properties(defaults_str=imageout_spec)
     manager.registerFactory(profile, ImageOut, OpenRTM_aist.Delete)
