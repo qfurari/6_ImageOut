@@ -14,7 +14,7 @@ import sys
 import time
 import numpy as np
 import cv2
-from screeninfo import get_monitors
+import random
 
 sys.path.append(".")
 
@@ -80,20 +80,26 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
             for amplitude, (x, y) in zip(self.image_gen_params, position_array_data):
                 # 色を決定する
+                
+                num = amplitude%3
+
                 blue = min(255, int((amplitude / 20000) * 255))
                 green = amplitude % 255;
-                red = min(255, int(((20000 - amplitude) / 30000) * 255))
+                #red = min(255, int(((20000 - amplitude) / 30000) * 255))
+                red = random.randint(50*(num+1), 255)
                 color = (blue, green, red)
                
                 center = (int(x), int(y))  # スケーリング
-                radius = (amplitude % 3 + 3) * 15
+                radius = (amplitude % 5 + 3) * 15
+                
+               
 
-                if 0 <= amplitude <= 5000:
+                if num==0:
                     cv2.circle(white_window, center, radius, color, -1)
-                elif 5001 <= amplitude <= 10000:
+                elif num==1:
                     axes = (radius, radius // 2)
                     cv2.ellipse(white_window, center, axes, 0, 0, 360, color, -1)
-                elif amplitude > 10000:
+                else:
                     top_left = (center[0] - radius, center[1] - radius)
                     bottom_right = (center[0] + radius, center[1] + radius)
                     cv2.rectangle(white_window, top_left, bottom_right, color, -1)
