@@ -87,24 +87,13 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
                 center = (int(x), int(y))
                 radius = (amplitude % 6 + 3) * 15
-                alpha = 0.7  # 透明度を0.5に設定
+                alpha = 0.7  # 透明度
 
                 # 新しいウィンドウに図形を描画
                 overlay = white_window.copy()
-                '''
-                if num == 0:
-                    cv2.circle(overlay, center, radius, color, -1)
-                elif num == 1:
-                    axes = (radius, radius // 2)
-                    cv2.ellipse(overlay, center, axes, 0, 0, 360, color, -1)
-                else:
-                    top_left = (center[0] - radius, center[1] - radius)
-                    bottom_right = (center[0] + radius, center[1] + radius)
-                    cv2.rectangle(overlay, top_left, bottom_right, color, -1)
-'''
-
+               
                 shape_index = (amplitude - 1) // 500
-                num_sides = min(shape_index + 3, 100)
+                num_sides = max(min(shape_index + 3, 100), 3)
                 angle_step = 2 * np.pi / num_sides
                 angles = np.arange(num_sides) * angle_step
                 x_points = (center[0] + radius * np.cos(angles)).astype(int)
@@ -118,7 +107,11 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
 
             cv2.imshow('Display Image', white_window)
             cv2.waitKey(1)
-            # cv2.destroyAllWindows()
+        if self.image_gen_params == []:
+            cv2.imshow('Display Image', white_window)
+            cv2.waitKey(1)
+            
+             
         return RTC.RTC_OK
 
     def onActivated(self, ec_id):
