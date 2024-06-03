@@ -85,7 +85,7 @@ class ImageOut(OpenRTM_aist.DataFlowComponentBase):
                 red = random.randint(50 * (num + 1), 255)
                 color = (blue, green, red)
 
-                center = (int(x), int(y))
+                center = (int(x*2), int(y*1.5))
                 radius = (amplitude % 6 + 3) * 15
                 alpha = 0.7  # 透明度
 
